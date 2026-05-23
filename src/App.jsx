@@ -1,4 +1,4 @@
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { KeyboardControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { Scene } from './Scene';
@@ -7,10 +7,16 @@ import { ThirdPersonCamera } from './components/ThirdPersonCamera';
 import { Arena } from './components/Arena';
 import { ZombieSpawner } from './components/ZombieSpawner';
 import { Bullet } from './components/Bullet';
+import { HUD } from './components/HUD';
+import { GameOverScreen } from './components/GameOverScreen';
+import { LevelCompleteScreen } from './components/LevelCompleteScreen';
+import { PickupSpawner } from './components/PickupSpawner';
+import { MainMenu } from './components/MainMenu';
+import { PauseMenu } from './components/PauseMenu';
 import { useMouseLook } from './hooks/useMouseLook';
 import { useShooting } from './hooks/useShooting';
 import { useGameStore } from './store/useGameStore';
-import { useWeaponStore, WEAPONS } from './store/useWeaponStore';
+import { useWeaponStore } from './store/useWeaponStore';
 import { Suspense, useCallback, useEffect } from 'react';
 import './App.css';
 
@@ -29,6 +35,11 @@ const GameCanvas = () => {
   useMouseLook();
   useShooting();
   const bullets = useWeaponStore((s) => s.bullets);
+  const tickTimer = useGameStore((s) => s.tickTimer);
+
+  useFrame((state, delta) => {
+    tickTimer(delta);
+  });
 
   return (
     <Scene>
@@ -36,6 +47,7 @@ const GameCanvas = () => {
         <Player />
         <Arena />
         <ZombieSpawner />
+        <PickupSpawner />
         <ThirdPersonCamera />
         {bullets.map((b) => (
           <Bullet key={b.id} {...b} />
@@ -46,60 +58,45 @@ const GameCanvas = () => {
 };
 
 function App() {
-  const { gameState, health, maxHealth, level, kills, reset: resetGame, setGameState } = useGameStore();
-  const { currentWeaponKey, currentMag, reserveAmmo, isReloading, reset: resetWeapons } = useWeaponStore();
-
-  const activeWeapon = WEAPONS[currentWeaponKey];
+  const { gameState, lastDamageTime, setGameState } = useGameStore();
 
   useEffect(() => {
-    // Start game state immediately for testing
-    setGameState('PLAYING');
+    const handlePointerLockChange = () => {
+      if (document.pointerLockElement === null && useGameStore.getState().gameState === 'PLAYING') {
+        setGameState('PAUSED');
+      }
+    };
+    document.addEventListener('pointerlockchange', handlePointerLockChange);
+    return () => {
+      document.removeEventListener('pointerlockchange', handlePointerLockChange);
+    };
   }, [setGameState]);
 
   const handleCanvasClick = useCallback((e) => {
+    if (gameState !== 'PLAYING') return;
     // Request pointer lock on canvas click
     e.target.requestPointerLock?.();
-  }, []);
+  }, [gameState]);
 
   return (
     <KeyboardControls map={keyboardMap}>
       <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
-        {/* HUD */}
-        <div className="hud">
-          <div className="hud-item">
-            <span className="hud-label">HP</span>
-            <div className="health-bar-bg">
-              <div
-                className="health-bar-fill"
-                style={{ width: `${(health / maxHealth) * 100}%` }}
-              />
-            </div>
-            <span className="hud-value">{health}/{maxHealth}</span>
-          </div>
-          <div className="hud-item">
-            <span className="hud-label">Weapon</span>
-            <span className="hud-value" style={{ textTransform: 'capitalize' }}>
-              {activeWeapon.name}
-            </span>
-          </div>
-          <div className="hud-item">
-            <span className="hud-label">Ammo</span>
-            <span className="hud-value">
-              {isReloading ? 'RELOADING...' : `${currentMag} / ${reserveAmmo}`}
-            </span>
-          </div>
-          <div className="hud-item">
-            <span className="hud-label">Level</span>
-            <span className="hud-value">{level}</span>
-          </div>
-          <div className="hud-item">
-            <span className="hud-label">Kills</span>
-            <span className="hud-value">{kills}</span>
-          </div>
-        </div>
+        {/* HUD - only show when playing */}
+        {gameState === 'PLAYING' && <HUD />}
 
         {/* Crosshair */}
-        <div className="crosshair">+</div>
+        {gameState === 'PLAYING' && <div className="crosshair">+</div>}
+
+        {/* Damage Flash key'd trigger */}
+        {lastDamageTime > 0 && gameState === 'PLAYING' && (
+          <div key={lastDamageTime} className="damage-flash" />
+        )}
+
+        {/* Level Complete / Game Over Screen Overlays */}
+        {gameState === 'MENU' && <MainMenu />}
+        {gameState === 'PAUSED' && <PauseMenu />}
+        {gameState === 'LEVEL_COMPLETE' && <LevelCompleteScreen />}
+        {gameState === 'GAMEOVER' && <GameOverScreen />}
 
         <Canvas
           shadows={{ type: THREE.PCFShadowMap }}

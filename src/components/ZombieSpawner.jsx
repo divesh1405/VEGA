@@ -21,9 +21,12 @@ export const ZombieSpawner = () => {
 
   // Reset spawner on level change
   useEffect(() => {
-    setZombies([]);
-    spawnedCount.current = 0;
-    lastSpawnTime.current = 0;
+    const timer = setTimeout(() => {
+      setZombies([]);
+      spawnedCount.current = 0;
+      lastSpawnTime.current = 0;
+    }, 0);
+    return () => clearTimeout(timer);
   }, [level, gameState]);
 
   useFrame((state) => {
@@ -31,7 +34,7 @@ export const ZombieSpawner = () => {
 
     const now = state.clock.getElapsedTime();
     if (
-      spawnedCount.current < config.count &&
+      zombies.length < config.count &&
       now - lastSpawnTime.current > config.interval
     ) {
       lastSpawnTime.current = now;
@@ -39,7 +42,7 @@ export const ZombieSpawner = () => {
 
       // Spawn at random location around the perimeter of the 30x30 arena
       const side = Math.floor(Math.random() * 4);
-      let x = 0, z = 0;
+      let x, z;
       const offset = 14;
       const randVal = (Math.random() - 0.5) * 28;
 

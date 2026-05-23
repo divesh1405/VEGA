@@ -77,37 +77,43 @@ export const useWeaponStore = create((set, get) => ({
     const now = performance.now() / 1000;
     if (now - state.lastFireTime < weapon.fireRate) return false;
 
-    // Apply accuracy spread
-    const spread = (Math.random() - 0.5) * weapon.accuracy;
-    const spreadY = (Math.random() - 0.5) * weapon.accuracy;
-    const dir = {
-      x: direction.x + spread,
-      y: direction.y + spreadY,
-      z: direction.z,
-    };
-    // Normalize
-    const len = Math.sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
-    dir.x /= len;
-    dir.y /= len;
-    dir.z /= len;
+    const isShotgun = state.currentWeaponKey === 'shotgun';
+    const numPellets = isShotgun ? 6 : 1;
+    const newBullets = [];
+    let bulletId = state.nextBulletId;
 
-    const bullet = {
-      id: state.nextBulletId,
-      position: [position.x, position.y, position.z],
-      velocity: [
-        dir.x * weapon.bulletSpeed,
-        dir.y * weapon.bulletSpeed,
-        dir.z * weapon.bulletSpeed,
-      ],
-      damage: weapon.damage,
-      createdAt: now,
-    };
+    for (let i = 0; i < numPellets; i++) {
+      const spread = (Math.random() - 0.5) * weapon.accuracy;
+      const spreadY = (Math.random() - 0.5) * weapon.accuracy;
+      const dir = {
+        x: direction.x + spread,
+        y: direction.y + spreadY,
+        z: direction.z,
+      };
+      // Normalize
+      const len = Math.sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+      dir.x /= len;
+      dir.y /= len;
+      dir.z /= len;
+
+      newBullets.push({
+        id: bulletId++,
+        position: [position.x, position.y, position.z],
+        velocity: [
+          dir.x * weapon.bulletSpeed,
+          dir.y * weapon.bulletSpeed,
+          dir.z * weapon.bulletSpeed,
+        ],
+        damage: isShotgun ? 10 : weapon.damage,
+        createdAt: now,
+      });
+    }
 
     set({
       currentMag: state.currentMag - 1,
       lastFireTime: now,
-      bullets: [...state.bullets, bullet],
-      nextBulletId: state.nextBulletId + 1,
+      bullets: [...state.bullets, ...newBullets],
+      nextBulletId: bulletId,
     });
     return true;
   },
