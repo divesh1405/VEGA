@@ -1,41 +1,44 @@
-import { PerspectiveCamera, OrthographicCamera, Environment, ContactShadows } from '@react-three/drei';
-import { Physics } from '@react-three/rapier';
-import { useGameStore } from './store/useGameStore';
+import { Environment, ContactShadows } from '@react-three/drei';
+import { Physics, RigidBody } from '@react-three/rapier';
 import { Suspense } from 'react';
 
 export const Scene = ({ children }) => {
-  const dimension = useGameStore((state) => state.dimension);
-
   return (
     <>
-      {dimension === '3D' ? (
-        <PerspectiveCamera makeDefault position={[5, 5, 10]} fov={50} />
-      ) : (
-        <OrthographicCamera makeDefault position={[0, 0, 10]} zoom={50} />
-      )}
+      {/* Lighting */}
+      <ambientLight intensity={0.4} color="#5577bb" />
+      <directionalLight
+        position={[15, 20, 10]}
+        intensity={1.8}
+        color="#d0c0ff"
+        castShadow
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-camera-far={50}
+        shadow-camera-left={-20}
+        shadow-camera-right={20}
+        shadow-camera-top={20}
+        shadow-camera-bottom={-20}
+      />
 
-      <ambientLight intensity={0.5} />
-      <pointLight position={[10, 10, 10]} intensity={1} />
-      <Environment preset="city" />
+      {/* Atmosphere */}
+      <fog attach="fog" args={['#0a0a15', 18, 55]} />
+      <color attach="background" args={['#0a0a15']} />
 
       <Suspense fallback={null}>
-        <Physics debug>
+        <Physics gravity={[0, -15, 0]}>
           {children}
-          
-          {/* Default Floor for testing */}
-          <RigidBody type="fixed" position={[0, -1, 0]}>
-            <mesh receiveShadow>
-              <boxGeometry args={[20, 0.5, 20]} />
-              <meshStandardMaterial color="#333" />
-            </mesh>
-          </RigidBody>
         </Physics>
       </Suspense>
 
-      <ContactShadows opacity={0.5} scale={10} blur={1} far={10} resolution={256} color="#000000" />
+      <ContactShadows
+        opacity={0.4}
+        scale={30}
+        blur={1.5}
+        far={15}
+        resolution={256}
+        color="#000000"
+      />
     </>
   );
 };
-
-// Need to import RigidBody from rapier
-import { RigidBody } from '@react-three/rapier';
